@@ -1,0 +1,15 @@
+provider: openai
+model: gpt-4o-mini
+
+review:
+  max_iterations: 8
+  severity_threshold: medium
+
+paths:
+  ignore:
+    - node_modules
+    - dist
+    - build
+    - coverage
+    - .git
+    - .pr-review

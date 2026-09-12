@@ -1,0 +1,79 @@
+name: PrNerd Review
+description: BYOK AI PR reviewer — Static Pack → Agentic Investigation → Structured Review
+author: PrNerd
+
+inputs:
+  openai_api_key:
+    description: OpenAI API key (BYOK). Prefer secrets.OPENAI_API_KEY.
+    required: true
+  provider:
+    description: LLM provider (V1 supports openai)
+    required: false
+    default: openai
+  model:
+    description: Model name
+    required: false
+    default: gpt-4o-mini
+  max_iterations:
+    description: Maximum agent investigation iterations
+    required: false
+    default: "8"
+  severity_threshold:
+    description: Minimum severity to report (critical|high|medium|low|info)
+    required: false
+    default: medium
+  publish:
+    description: Whether to publish a PR comment
+    required: false
+    default: "true"
+
+runs:
+  using: composite
+  steps:
+    - name: Setup Node
+      uses: actions/setup-node@v4
+      with:
+        node-version: "22"
+
+    - name: Install PrNerd
+      shell: bash
+      run: |
+        if [ -f package.json ] && grep -q '"name": "prnerd"' package.json; then
+          npm ci
+          npm run build
+        else
+          npm install -g prnerd@0.1.0 || npm install -g "$(pwd)"
+        fi
+
+    - name: Resolve PR refs
+      id: refs
+      shell: bash
+      run: |
+        echo "base_sha=${{ github.event.pull_request.base.sha }}" >> "$GITHUB_OUTPUT"
+        echo "head_sha=${{ github.event.pull_request.head.sha }}" >> "$GITHUB_OUTPUT"
+        echo "pr_number=${{ github.event.pull_request.number }}" >> "$GITHUB_OUTPUT"
+
+    - name: Run review
+      shell: bash
+      env:
+        OPENAI_API_KEY: ${{ inputs.openai_api_key }}
+        GITHUB_TOKEN: ${{ github.token }}
+        PRNERD_PROVIDER: ${{ inputs.provider }}
+        PRNERD_MODEL: ${{ inputs.model }}
+        PRNERD_MAX_ITERATIONS: ${{ inputs.max_iterations }}
+        PRNERD_SEVERITY_THRESHOLD: ${{ inputs.severity_threshold }}
+        PRNERD_PUBLISH: ${{ inputs.publish }}
+        PRNERD_BASE_SHA: ${{ steps.refs.outputs.base_sha }}
+        PRNERD_HEAD_SHA: ${{ steps.refs.outputs.head_sha }}
+        PRNERD_PR_NUMBER: ${{ steps.refs.outputs.pr_number }}
+        PRNERD_PR_TITLE: ${{ github.event.pull_request.title }}
+        PRNERD_PR_BODY: ${{ github.event.pull_request.body }}
+        PRNERD_PR_AUTHOR: ${{ github.event.pull_request.user.login }}
+        PRNERD_PR_URL: ${{ github.event.pull_request.html_url }}
+        PRNERD_REPOSITORY: ${{ github.repository }}
+      run: |
+        if [ -f dist/github/action.js ]; then
+          node dist/github/action.js
+        else
+          pr-review review --base "$PRNERD_BASE_SHA" --head "$PRNERD_HEAD_SHA" --markdown
+        fi

@@ -1,0 +1,331 @@
+# PrNerd
+
+**An AI PR reviewer that investigates before it reviews.**
+
+PrNerd is a reusable, open-source, **BYOK** (Bring Your Own Key) pull-request review tool. It does not dump a diff into an LLM and hope for the best. It builds a deterministic **Static Context Pack**, then runs an **agentic investigation loop** that can search and read the repository until it has enough confidence to produce a **structured review**.
+
+```
+Pull Request
+    ↓
+Static Context Pack
+    ↓
+Agentic Investigation Loop
+    ↓
+Structured Review
+    ↓
+GitHub PR / CLI
+```
+
+Philosophy: **Prepare → Investigate → Understand → Review**  
+Not: Diff → LLM → Comments
+
+> PrNerd aims for high-signal findings. It does **not** claim to find every bug.
+
+---
+
+## Why this is different
+
+Most “AI PR review” tools send a patch to a model and paste the reply as comments.
+
+PrNerd separates two kinds of context:
+
+| Stage | What it is | Who runs it |
+|--------|------------|-------------|
+| **Static Pack** | Cheap, bounded, reproducible first context | Deterministic code (git / fs / ripgrep) |
+| **Agentic Loop** | Dynamic follow-up when the pack is not enough | LLM chooses tools until confident |
+
+Example:
+
+1. Static Pack includes `src/auth/login.ts` and its diff  
+2. Agent notices a changed helper  
+3. Agent calls `find_references` / `search_code`  
+4. Agent reads a caller and a config file  
+5. Agent submits structured findings — or zero findings
+
+---
+
+## Features (V1)
+
+- **BYOK** — your API key, your provider account; keys are never hard-coded or persisted by PrNerd
+- **Static Context Pack** — inspectable at `.pr-review/static-pack.json`
+- **Agent tools** — `get_diff`, `read_file`, `search_code`, `list_files`, `find_references`, `get_file_history`, `submit_review`
+- **Hard iteration limit** — investigation cannot run forever
+- **Structured findings** — severity, file, line, explanation, suggestion
+- **AGENTS.md support** — repository guidance included as *untrusted* context
+- **Prompt-injection hardening** — system instructions stay above repo/PR/tool text
+- **Local CLI** — debug without GitHub
+- **GitHub Actions** — optional PR comment publishing
+- **No vector DB** — git + filesystem + `rg` only
+
+---
+
+## Installation
+
+Requires **Node.js 20+**. `git` is required. `rg` (ripgrep) is recommended for faster search.
+
+```bash
+npm install -g prnerd
+# or from this repo:
+npm install
+npm run build
+npm link
+```
+
+---
+
+## BYOK
+
+Set your key locally:
+
+```bash
+# Windows PowerShell
+$env:OPENAI_API_KEY = "sk-..."
+
+# macOS / Linux
+export OPENAI_API_KEY=sk-...
+```
+
+In GitHub Actions, store the key as a repository secret (for example `OPENAI_API_KEY`) and pass it into the workflow. PrNerd only sends the key to the configured LLM provider.
+
+Never commit keys. Never put keys in `.pr-reviewer.yml`.
+
+---
+
+## Local usage
+
+### 1. Build the Static Pack only
+
+```bash
+pr-review pack --base main --head HEAD
+```
+
+Writes `.pr-review/static-pack.json`.
+
+### 2. Full review
+
+```bash
+pr-review review --base main --head HEAD --verbose
+```
+
+Options:
+
+```bash
+pr-review review --base main --head HEAD --json
+pr-review review --base main --head HEAD --markdown
+pr-review review --base main --head HEAD --model gpt-4o --max-iterations 6
+pr-review show-pack
+```
+
+### Example review output
+
+```markdown
+## PrNerd Review
+
+Authentication error paths look incomplete when the upstream IdP times out.
+
+_Confidence: medium_
+
+### Findings (1)
+
+#### [HIGH] Unhandled rejection on timeout
+- **Where:** `src/auth/login.ts:84`
+- **Category:** error_handling
+- **Why:** `fetchProfile` can reject after the request is aborted; the catch block only handles `AuthError`.
+- **Suggestion:** Catch abort/timeout errors and map them to a retryable response.
+```
+
+Empty reviews are valid when nothing meaningful is found.
+
+---
+
+## Configuration
+
+Optional `.pr-reviewer.yml` in the repo root:
+
+```yaml
+provider: openai
+model: gpt-4o-mini
+
+review:
+  max_iterations: 8
+  severity_threshold: medium
+
+paths:
+  ignore:
+    - node_modules
+    - dist
+```
+
+---
+
+## GitHub Action setup
+
+1. Add repository secret `OPENAI_API_KEY`
+2. Add a workflow such as `.github/workflows/pr-review.yml`:
+
+```yaml
+name: PrNerd PR Review
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  review:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - run: npm install -g prnerd
+
+      - name: Run PrNerd
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PRNERD_BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          PRNERD_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          PRNERD_PR_NUMBER: ${{ github.event.pull_request.number }}
+          PRNERD_PR_TITLE: ${{ github.event.pull_request.title }}
+          PRNERD_PR_BODY: ${{ github.event.pull_request.body }}
+          PRNERD_PR_AUTHOR: ${{ github.event.pull_request.user.login }}
+          PRNERD_PR_URL: ${{ github.event.pull_request.html_url }}
+          PRNERD_REPOSITORY: ${{ github.repository }}
+        run: node "$(npm root -g)/prnerd/dist/github/action.js"
+```
+
+V1 publishes a single structured PR comment (not inline line comments).
+
+---
+
+## Supported providers
+
+| Provider | V1 status |
+|----------|-----------|
+| OpenAI | Implemented |
+| Anthropic | Interface stub |
+| Gemini | Interface stub |
+| xAI | Interface stub |
+
+The agent engine depends only on `LLMProvider`. Adding a provider should not require rewriting the review loop.
+
+---
+
+## Architecture
+
+```
+GitHub Action / CLI
+        ↓
+   Review Engine
+        ↓
+ Static Pack Builder  →  .pr-review/static-pack.json
+        ↓
+    Agent Loop
+   ↙    ↓    ↘
+search read diff / history
+   ↘    ↓    ↙
+   Repository
+        ↓
+   LLM Provider (BYOK)
+        ↓
+ Structured Findings → CLI / GitHub comment
+```
+
+### Directory layout
+
+```
+src/
+  agent/         # prompts + investigation loop
+  static-pack/   # StaticPackBuilder + schema
+  tools/         # repository tools
+  providers/     # LLMProvider + OpenAI
+  review/        # ReviewEngine + findings schema
+  github/        # Action entry + comment publishing
+  config/        # .pr-reviewer.yml
+  cli/           # pr-review CLI
+  utils/         # git/exec helpers
+```
+
+### Static Pack (v1)
+
+Deterministic JSON including:
+
+- PR / comparison metadata (base, head, SHAs)
+- Changed files + full (bounded) diff
+- Surrounding code for changed files
+- Import hints + related tests
+- `AGENTS.md` / similar instructions (if present)
+- Relevant file-structure snippet
+- Basic commit metadata
+
+### Agent loop
+
+1. System reviewer instructions (trusted)
+2. Static Pack as untrusted repository context
+3. Model may call tools (bounded output, secret paths blocked)
+4. Tool results wrapped as untrusted
+5. Model calls `submit_review` with structured JSON
+6. Invalid / malformed payloads → **empty findings** (fail safe)
+7. Hard stop at `max_iterations`
+
+---
+
+## Repository instructions (`AGENTS.md`)
+
+If `AGENTS.md` (or `AGENT.md` / `CLAUDE.md`) exists, it is included in the Static Pack.
+
+Repository content — including AGENTS.md, README, PR descriptions, comments, and tool output — is **untrusted** and cannot override system reviewer rules.
+
+---
+
+## Development
+
+```bash
+npm install
+npm run typecheck
+npm run lint
+npm test
+npm run build
+```
+
+Tests mock the LLM. No real API calls in CI.
+
+---
+
+## Environment variables
+
+| Variable | Purpose |
+|----------|---------|
+| `OPENAI_API_KEY` | BYOK key for OpenAI |
+| `PRNERD_PROVIDER` | Provider override |
+| `PRNERD_MODEL` | Model override |
+| `PRNERD_MAX_ITERATIONS` | Agent iteration cap |
+| `PRNERD_SEVERITY_THRESHOLD` | Minimum reported severity |
+| `PRNERD_PUBLISH` | `false` to skip GitHub comment |
+| `GITHUB_TOKEN` | Publish PR comments in Actions |
+
+---
+
+## Roadmap (V2+)
+
+- Anthropic / Gemini / xAI providers
+- Inline GitHub review comments
+- Parallel tool calls + smarter pack budgeting
+- Incremental review on push (review only new commits)
+- SARIF / code-scanning export
+- Optional ignore-findings suppressions file
+
+---
+
+## License
+
+MIT

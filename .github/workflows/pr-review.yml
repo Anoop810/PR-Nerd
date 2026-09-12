@@ -1,0 +1,42 @@
+# Example workflow for consumers of PrNerd
+name: PrNerd PR Review
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  review:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Install PrNerd
+        run: npm install -g prnerd
+
+      - name: Run PrNerd
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PRNERD_BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          PRNERD_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          PRNERD_PR_NUMBER: ${{ github.event.pull_request.number }}
+          PRNERD_PR_TITLE: ${{ github.event.pull_request.title }}
+          PRNERD_PR_BODY: ${{ github.event.pull_request.body }}
+          PRNERD_PR_AUTHOR: ${{ github.event.pull_request.user.login }}
+          PRNERD_PR_URL: ${{ github.event.pull_request.html_url }}
+          PRNERD_REPOSITORY: ${{ github.repository }}
+          PRNERD_PUBLISH: "true"
+        run: node "$(npm root -g)/prnerd/dist/github/action.js"

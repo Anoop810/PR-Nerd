@@ -1,0 +1,66 @@
+import { describe, expect, it } from "vitest";
+import {
+  isIgnoredPath,
+  looksLikeSecretPath,
+  redactSecrets,
+  truncateText,
+} from "../src/utils/exec.js";
+import { formatReviewMarkdown } from "../src/github/publish.js";
+
+describe("utils", () => {
+  it("truncates long text", () => {
+    const { text, truncated } = truncateText("abcdefghij", 5);
+    expect(truncated).toBe(true);
+    expect(text.startsWith("abcde")).toBe(true);
+  });
+
+  it("detects ignored paths", () => {
+    expect(isIgnoredPath("node_modules/x", ["node_modules"])).toBe(true);
+    expect(isIgnoredPath("src/app.ts", ["node_modules"])).toBe(false);
+  });
+
+  it("detects secret-like paths", () => {
+    expect(looksLikeSecretPath(".env")).toBe(true);
+    expect(looksLikeSecretPath("src/app.ts")).toBe(false);
+  });
+
+  it("redacts key-looking tokens", () => {
+    const out = redactSecrets("token sk-abcdefghijklmnopqrstuvwxyz123456 and OPENAI_API_KEY=abc123");
+    expect(out).toContain("[REDACTED]");
+    expect(out).not.toContain("sk-abcdefghijklmnopqrstuvwxyz123456");
+  });
+});
+
+describe("github markdown formatting", () => {
+  it("formats empty findings", () => {
+    const md = formatReviewMarkdown({
+      summary: "Clean",
+      confidence: "high",
+      findings: [],
+      investigatedFiles: [],
+    });
+    expect(md).toContain("PrNerd Review");
+    expect(md).toContain("No findings");
+  });
+
+  it("formats findings with location", () => {
+    const md = formatReviewMarkdown({
+      summary: "One issue",
+      confidence: "medium",
+      investigatedFiles: ["src/a.ts"],
+      findings: [
+        {
+          file: "src/a.ts",
+          line: 12,
+          severity: "high",
+          title: "Bug",
+          explanation: "broken",
+          suggestion: "fix it",
+          category: "bug",
+        },
+      ],
+    });
+    expect(md).toContain("src/a.ts:12");
+    expect(md).toContain("Bug");
+  });
+});
