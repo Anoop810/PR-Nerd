@@ -75,19 +75,21 @@ npm link
 
 ## BYOK
 
-Set your key locally:
+Set your Gemini key locally:
 
 ```bash
 # Windows PowerShell
-$env:OPENAI_API_KEY = "sk-..."
+$env:GEMINI_API_KEY = "your-key"
 
 # macOS / Linux
-export OPENAI_API_KEY=sk-...
+export GEMINI_API_KEY=your-key
 ```
 
-In GitHub Actions, store the key as a repository secret (for example `OPENAI_API_KEY`) and pass it into the workflow. PrNerd only sends the key to the configured LLM provider.
+In GitHub Actions, store the key as a repository secret (`GEMINI_API_KEY`) and pass it into the workflow. PrNerd only sends the key to the configured LLM provider.
 
 Never commit keys. Never put keys in `.pr-reviewer.yml`.
+
+`GOOGLE_API_KEY` and `GOOGLE_GENERATIVE_AI_API_KEY` are also accepted as Gemini key aliases.
 
 ---
 
@@ -112,7 +114,7 @@ Options:
 ```bash
 pr-review review --base main --head HEAD --json
 pr-review review --base main --head HEAD --markdown
-pr-review review --base main --head HEAD --model gpt-4o --max-iterations 6
+pr-review review --base main --head HEAD --model gemini-2.5-flash --max-iterations 6
 pr-review show-pack
 ```
 
@@ -143,8 +145,8 @@ Empty reviews are valid when nothing meaningful is found.
 Optional `.pr-reviewer.yml` in the repo root:
 
 ```yaml
-provider: openai
-model: gpt-4o-mini
+provider: gemini
+model: gemini-2.5-flash
 
 review:
   max_iterations: 8
@@ -160,7 +162,7 @@ paths:
 
 ## GitHub Action setup
 
-1. Add repository secret `OPENAI_API_KEY`
+1. Add repository secret `GEMINI_API_KEY`
 2. Add a workflow such as `.github/workflows/pr-review.yml`:
 
 ```yaml
@@ -190,7 +192,7 @@ jobs:
 
       - name: Run PrNerd
         env:
-          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           PRNERD_BASE_SHA: ${{ github.event.pull_request.base.sha }}
           PRNERD_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
@@ -211,9 +213,8 @@ V1 publishes a single structured PR comment (not inline line comments).
 
 | Provider | V1 status |
 |----------|-----------|
-| OpenAI | Implemented |
+| Gemini | Implemented (only supported provider) |
 | Anthropic | Interface stub |
-| Gemini | Interface stub |
 | xAI | Interface stub |
 
 The agent engine depends only on `LLMProvider`. Adding a provider should not require rewriting the review loop.
@@ -247,7 +248,7 @@ src/
   agent/         # prompts + investigation loop
   static-pack/   # StaticPackBuilder + schema
   tools/         # repository tools
-  providers/     # LLMProvider + OpenAI
+  providers/     # LLMProvider + Gemini
   review/        # ReviewEngine + findings schema
   github/        # Action entry + comment publishing
   config/        # .pr-reviewer.yml
@@ -305,9 +306,10 @@ Tests mock the LLM. No real API calls in CI.
 
 | Variable | Purpose |
 |----------|---------|
-| `OPENAI_API_KEY` | BYOK key for OpenAI |
-| `PRNERD_PROVIDER` | Provider override |
-| `PRNERD_MODEL` | Model override |
+| `GEMINI_API_KEY` | BYOK key for Gemini |
+| `GOOGLE_API_KEY` | Alias for Gemini BYOK key |
+| `PRNERD_PROVIDER` | Provider override (use `gemini`) |
+| `PRNERD_MODEL` | Model override (e.g. `gemini-2.5-flash`) |
 | `PRNERD_MAX_ITERATIONS` | Agent iteration cap |
 | `PRNERD_SEVERITY_THRESHOLD` | Minimum reported severity |
 | `PRNERD_PUBLISH` | `false` to skip GitHub comment |
@@ -317,7 +319,7 @@ Tests mock the LLM. No real API calls in CI.
 
 ## Roadmap (V2+)
 
-- Anthropic / Gemini / xAI providers
+- Anthropic / xAI providers
 - Inline GitHub review comments
 - Parallel tool calls + smarter pack budgeting
 - Incremental review on push (review only new commits)

@@ -25,7 +25,7 @@ describe("utils", () => {
   });
 
   it("redacts key-looking tokens", () => {
-    const out = redactSecrets("token sk-abcdefghijklmnopqrstuvwxyz123456 and OPENAI_API_KEY=abc123");
+    const out = redactSecrets("token sk-abcdefghijklmnopqrstuvwxyz123456 and GEMINI_API_KEY=abc123");
     expect(out).toContain("[REDACTED]");
     expect(out).not.toContain("sk-abcdefghijklmnopqrstuvwxyz123456");
   });

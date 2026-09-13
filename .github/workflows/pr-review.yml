@@ -1,4 +1,3 @@
-# Example workflow for consumers of PrNerd
 name: PrNerd PR Review
 
 on:
@@ -23,12 +22,14 @@ jobs:
         with:
           node-version: "22"
 
-      - name: Install PrNerd
-        run: npm install -g prnerd
+      - name: Install and build
+        run: |
+          npm ci
+          npm run build
 
       - name: Run PrNerd
         env:
-          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           PRNERD_BASE_SHA: ${{ github.event.pull_request.base.sha }}
           PRNERD_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
@@ -39,4 +40,4 @@ jobs:
           PRNERD_PR_URL: ${{ github.event.pull_request.html_url }}
           PRNERD_REPOSITORY: ${{ github.repository }}
           PRNERD_PUBLISH: "true"
-        run: node "$(npm root -g)/prnerd/dist/github/action.js"
+        run: node dist/github/action.js

@@ -5,7 +5,10 @@ import { Command } from "commander";
 import { loadConfig } from "../config/load.js";
 import { ReviewEngine } from "../review/engine.js";
 import { formatReviewMarkdown } from "../github/publish.js";
-import { createProvider } from "../providers/index.js";
+import {
+  byokHintForProvider,
+  createProvider,
+} from "../providers/index.js";
 import type { AgentEvent } from "../agent/loop.js";
 
 const printEvent = (event: AgentEvent, verbose: boolean): void => {
@@ -109,9 +112,7 @@ program
         console.error(
           error instanceof Error ? error.message : String(error),
         );
-        console.error(
-          "BYOK: set OPENAI_API_KEY in your environment (never commit keys).",
-        );
+        console.error(byokHintForProvider(config.provider));
         process.exitCode = 1;
         return;
       }

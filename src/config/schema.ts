@@ -2,9 +2,8 @@ import { z } from "zod";
 import { SeveritySchema } from "../review/findings.js";
 
 export const ProviderNameSchema = z.enum([
-  "openai",
-  "anthropic",
   "gemini",
+  "anthropic",
   "xai",
 ]);
 export type ProviderName = z.infer<typeof ProviderNameSchema>;
@@ -47,8 +46,8 @@ const StaticPackConfigSchema = z
   }));
 
 export const ConfigSchema = z.object({
-  provider: ProviderNameSchema.default("openai"),
-  model: z.string().default("gpt-4o-mini"),
+  provider: ProviderNameSchema.default("gemini"),
+  model: z.string().default("gemini-2.5-flash"),
   review: ReviewConfigSchema.default({}),
   staticPack: StaticPackConfigSchema.default({}),
   static_pack: StaticPackConfigSchema.optional(),

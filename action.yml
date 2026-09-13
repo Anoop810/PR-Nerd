@@ -3,17 +3,17 @@ description: BYOK AI PR reviewer — Static Pack → Agentic Investigation → S
 author: PrNerd
 
 inputs:
-  openai_api_key:
-    description: OpenAI API key (BYOK). Prefer secrets.OPENAI_API_KEY.
+  gemini_api_key:
+    description: Gemini API key (BYOK). Prefer secrets.GEMINI_API_KEY.
     required: true
   provider:
-    description: LLM provider (V1 supports openai)
+    description: LLM provider (gemini)
     required: false
-    default: openai
+    default: gemini
   model:
     description: Model name
     required: false
-    default: gpt-4o-mini
+    default: gemini-2.5-flash
   max_iterations:
     description: Maximum agent investigation iterations
     required: false
@@ -56,7 +56,7 @@ runs:
     - name: Run review
       shell: bash
       env:
-        OPENAI_API_KEY: ${{ inputs.openai_api_key }}
+        GEMINI_API_KEY: ${{ inputs.gemini_api_key }}
         GITHUB_TOKEN: ${{ github.token }}
         PRNERD_PROVIDER: ${{ inputs.provider }}
         PRNERD_MODEL: ${{ inputs.model }}

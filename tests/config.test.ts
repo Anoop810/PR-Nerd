@@ -26,8 +26,8 @@ describe("configuration loading", () => {
     writeFileSync(
       join(dir, ".pr-reviewer.yml"),
       [
-        "provider: openai",
-        "model: gpt-4o",
+        "provider: gemini",
+        "model: gemini-2.5-flash",
         "review:",
         "  maxIterations: 3",
         "  severityThreshold: high",
@@ -39,8 +39,9 @@ describe("configuration loading", () => {
       "utf8",
     );
     try {
-      const config = loadConfig(dir, { maxIterations: 5, model: "gpt-4o-mini" });
-      expect(config.model).toBe("gpt-4o-mini");
+      const config = loadConfig(dir, { maxIterations: 5, model: "gemini-2.0-flash" });
+      expect(config.model).toBe("gemini-2.0-flash");
+      expect(config.provider).toBe("gemini");
       expect(config.review.maxIterations).toBe(5);
       expect(config.review.severityThreshold).toBe("high");
       expect(config.paths.ignore).toEqual(["dist", "tmp"]);

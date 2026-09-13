@@ -24,10 +24,6 @@ const requireEnv = (name: string): string => {
 const main = async (): Promise<void> => {
   const workspace = resolve(process.env.GITHUB_WORKSPACE || process.cwd());
   const token = process.env.GITHUB_TOKEN || process.env.GH_TOKEN;
-  const openaiKey = process.env.OPENAI_API_KEY;
-  if (!openaiKey) {
-    throw new Error("BYOK: OPENAI_API_KEY secret is required");
-  }
 
   const eventName = process.env.GITHUB_EVENT_NAME ?? "";
   const base =
@@ -52,7 +48,24 @@ const main = async (): Promise<void> => {
     severityThreshold: process.env.PRNERD_SEVERITY_THRESHOLD,
   });
 
-  const provider = createProvider(config.provider, { apiKey: openaiKey });
+  const explicitKey =
+    process.env.GEMINI_API_KEY ||
+    process.env.GOOGLE_API_KEY ||
+    process.env.GOOGLE_GENERATIVE_AI_API_KEY ||
+    process.env.PRNERD_GEMINI_API_KEY;
+
+  let provider;
+  try {
+    provider = createProvider(config.provider, {
+      ...(explicitKey ? { apiKey: explicitKey } : {}),
+    });
+  } catch (error) {
+    throw new Error(
+      error instanceof Error
+        ? error.message
+        : "BYOK: set GEMINI_API_KEY secret for Gemini reviews",
+    );
+  }
   const engine = new ReviewEngine();
 
   const result = await engine.run({

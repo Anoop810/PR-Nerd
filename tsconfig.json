@@ -14,8 +14,7 @@
     "sourceMap": true,
     "noUncheckedIndexedAccess": true,
     "noImplicitOverride": true,
-    "outDir": "dist",
-    "rootDir": ".",
+    "noEmit": true,
     "types": ["node"]
   },
   "include": ["src/**/*", "tests/**/*"],

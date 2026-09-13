@@ -1,5 +1,3 @@
-import type { ChatCompletionTool } from "openai/resources/chat/completions";
-
 export type LLMRole = "system" | "user" | "assistant" | "tool";
 
 export type ToolCallRequest = {
@@ -45,15 +43,3 @@ export interface LLMProvider {
   readonly name: string;
   chat(request: ChatRequest): Promise<ChatResponse>;
 }
-
-export const toOpenAITools = (
-  tools: ToolDefinition[],
-): ChatCompletionTool[] =>
-  tools.map((tool) => ({
-    type: "function" as const,
-    function: {
-      name: tool.name,
-      description: tool.description,
-      parameters: tool.parameters,
-    },
-  }));

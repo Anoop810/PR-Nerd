@@ -17,7 +17,7 @@ export {
 } from "./config/load.js";
 export {
   createProvider,
-  OpenAIProvider,
+  GeminiProvider,
   type LLMProvider,
 } from "./providers/index.js";
 export {
