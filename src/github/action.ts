@@ -56,8 +56,16 @@ const main = async (): Promise<void> => {
 
   let provider;
   try {
+    const maxRetries = process.env.PRNERD_GEMINI_MAX_RETRIES
+      ? Number(process.env.PRNERD_GEMINI_MAX_RETRIES)
+      : undefined;
+    const retryBaseMs = process.env.PRNERD_GEMINI_RETRY_BASE_MS
+      ? Number(process.env.PRNERD_GEMINI_RETRY_BASE_MS)
+      : undefined;
     provider = createProvider(config.provider, {
       ...(explicitKey ? { apiKey: explicitKey } : {}),
+      ...(Number.isFinite(maxRetries) ? { maxRetries } : {}),
+      ...(Number.isFinite(retryBaseMs) ? { retryBaseMs } : {}),
     });
   } catch (error) {
     throw new Error(

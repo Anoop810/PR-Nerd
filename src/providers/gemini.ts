@@ -18,8 +18,9 @@ const ENV_KEYS = [
 /** Last-resort token when a signature was lost; Gemini documents this escape hatch. */
 const SKIP_THOUGHT_SIGNATURE = "skip_thought_signature_validator";
 
-const DEFAULT_MAX_RETRIES = 5;
-const DEFAULT_RETRY_BASE_MS = 1500;
+const DEFAULT_MAX_RETRIES = 8;
+const DEFAULT_RETRY_BASE_MS = 4000;
+const DEFAULT_RETRY_MAX_MS = 60_000;
 
 export const resolveGeminiApiKey = (
   explicit?: string,
@@ -36,27 +37,63 @@ export type GeminiProviderOptions = {
   apiKey?: string;
   maxRetries?: number;
   retryBaseMs?: number;
+  retryMaxMs?: number;
+};
+
+const readErrorStatus = (error: unknown): number | undefined => {
+  if (!error || typeof error !== "object") return undefined;
+  const record = error as Record<string, unknown>;
+  for (const key of ["status", "statusCode", "code"] as const) {
+    const value = record[key];
+    if (typeof value === "number" && Number.isFinite(value)) return value;
+    if (typeof value === "string" && /^\d+$/.test(value)) return Number(value);
+  }
+  return undefined;
+};
+
+const errorText = (error: unknown): string => {
+  const chunks: string[] = [];
+  if (error instanceof Error) {
+    chunks.push(error.message);
+    if (error.stack) chunks.push(error.stack);
+    const cause = (error as Error & { cause?: unknown }).cause;
+    if (cause) chunks.push(errorText(cause));
+  } else {
+    chunks.push(String(error));
+  }
+  try {
+    chunks.push(JSON.stringify(error));
+  } catch {
+    // ignore circulars
+  }
+  return chunks.join("\n");
 };
 
 export const isRetryableGeminiError = (error: unknown): boolean => {
-  const text =
-    error instanceof Error
-      ? `${error.message}\n${error.stack ?? ""}`
-      : String(error);
+  const status = readErrorStatus(error);
+  if (status !== undefined && [408, 429, 500, 502, 503, 504].includes(status)) {
+    return true;
+  }
 
+  const text = errorText(error);
   return (
     /\b503\b/.test(text) ||
     /\b429\b/.test(text) ||
     /\b500\b/.test(text) ||
+    /\b502\b/.test(text) ||
+    /\b504\b/.test(text) ||
     /UNAVAILABLE/i.test(text) ||
     /RESOURCE_EXHAUSTED/i.test(text) ||
+    /\bINTERNAL\b/.test(text) ||
     /high demand/i.test(text) ||
     /try again later/i.test(text) ||
+    /temporarily/i.test(text) ||
     /quota/i.test(text) ||
     /rate limit/i.test(text) ||
     /ECONNRESET/i.test(text) ||
     /ETIMEDOUT/i.test(text) ||
-    /socket hang up/i.test(text)
+    /socket hang up/i.test(text) ||
+    /fetch failed/i.test(text)
   );
 };
 
@@ -65,10 +102,14 @@ const sleep = (ms: number): Promise<void> =>
     setTimeout(resolve, ms);
   });
 
-const retryDelayMs = (attempt: number, baseMs: number): number => {
+const retryDelayMs = (
+  attempt: number,
+  baseMs: number,
+  maxMs: number,
+): number => {
   const expo = baseMs * 2 ** attempt;
   const jitter = Math.floor(Math.random() * baseMs);
-  return Math.min(30_000, expo + jitter);
+  return Math.min(maxMs, expo + jitter);
 };
 
 const toFunctionDeclarations = (
@@ -243,6 +284,7 @@ export class GeminiProvider implements LLMProvider {
   private readonly client: GoogleGenAI;
   private readonly maxRetries: number;
   private readonly retryBaseMs: number;
+  private readonly retryMaxMs: number;
 
   constructor(options: GeminiProviderOptions = {}) {
     const apiKey = resolveGeminiApiKey(options.apiKey);
@@ -254,6 +296,7 @@ export class GeminiProvider implements LLMProvider {
     this.client = new GoogleGenAI({ apiKey });
     this.maxRetries = options.maxRetries ?? DEFAULT_MAX_RETRIES;
     this.retryBaseMs = options.retryBaseMs ?? DEFAULT_RETRY_BASE_MS;
+    this.retryMaxMs = options.retryMaxMs ?? DEFAULT_RETRY_MAX_MS;
   }
 
   async chat(request: ChatRequest): Promise<ChatResponse> {
@@ -364,9 +407,17 @@ export class GeminiProvider implements LLMProvider {
           attempt < this.maxRetries && isRetryableGeminiError(error);
         if (!canRetry) throw error;
 
-        const delay = retryDelayMs(attempt, this.retryBaseMs);
-        console.warn(
-          `[prnerd] Gemini transient error (attempt ${attempt + 1}/${this.maxRetries + 1}); retrying in ${delay}ms`,
+        const delay = retryDelayMs(
+          attempt,
+          this.retryBaseMs,
+          this.retryMaxMs,
+        );
+        const status = readErrorStatus(error);
+        console.error(
+          `[prnerd] Gemini transient error${status ? ` status=${status}` : ""} (attempt ${attempt + 1}/${this.maxRetries + 1}); retrying in ${delay}ms`,
+        );
+        console.error(
+          `[prnerd] ${error instanceof Error ? error.message : String(error)}`,
         );
         await sleep(delay);
       }

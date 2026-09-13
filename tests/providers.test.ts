@@ -178,6 +178,11 @@ describe("provider abstraction", () => {
         ),
       ),
     ).toBe(true);
+    expect(
+      isRetryableGeminiError(
+        Object.assign(new Error("high demand"), { status: 503 }),
+      ),
+    ).toBe(true);
     expect(isRetryableGeminiError(new Error("INVALID_ARGUMENT"))).toBe(false);
   });
 

@@ -19,6 +19,9 @@ export {
 
 export type ProviderOptions = {
   apiKey?: string;
+  maxRetries?: number;
+  retryBaseMs?: number;
+  retryMaxMs?: number;
 };
 
 /**
