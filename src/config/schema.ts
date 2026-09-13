@@ -47,7 +47,7 @@ const StaticPackConfigSchema = z
 
 export const ConfigSchema = z.object({
   provider: ProviderNameSchema.default("gemini"),
-  model: z.string().default("gemini-2.5-flash"),
+  model: z.string().default("gemini-3.6-flash"),
   review: ReviewConfigSchema.default({}),
   staticPack: StaticPackConfigSchema.default({}),
   static_pack: StaticPackConfigSchema.optional(),

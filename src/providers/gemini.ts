@@ -15,6 +15,9 @@ const ENV_KEYS = [
   "PRNERD_GEMINI_API_KEY",
 ] as const;
 
+/** Last-resort token when a signature was lost; Gemini documents this escape hatch. */
+const SKIP_THOUGHT_SIGNATURE = "skip_thought_signature_validator";
+
 export const resolveGeminiApiKey = (
   explicit?: string,
 ): string | undefined => {
@@ -53,6 +56,53 @@ const parseArgsObject = (
     return { raw };
   }
 };
+
+/**
+ * Normalize thought signatures from SDK / REST shapes (camelCase, snake_case, bytes).
+ */
+export const normalizeThoughtSignature = (
+  value: unknown,
+): string | undefined => {
+  if (typeof value === "string" && value.length > 0) return value;
+  if (value instanceof Uint8Array && value.length > 0) {
+    return Buffer.from(value).toString("base64");
+  }
+  if (
+    value &&
+    typeof value === "object" &&
+    "type" in value &&
+    (value as { type?: string }).type === "Buffer" &&
+    "data" in value &&
+    Array.isArray((value as { data?: unknown }).data)
+  ) {
+    return Buffer.from((value as { data: number[] }).data).toString("base64");
+  }
+  return undefined;
+};
+
+const readPartThoughtSignature = (part: Part): string | undefined => {
+  const direct = normalizeThoughtSignature(part.thoughtSignature);
+  if (direct) return direct;
+
+  const snake = normalizeThoughtSignature(
+    (part as Part & { thought_signature?: unknown }).thought_signature,
+  );
+  if (snake) return snake;
+
+  const nested = part.functionCall as
+    | (NonNullable<Part["functionCall"]> & {
+        thoughtSignature?: unknown;
+        thought_signature?: unknown;
+      })
+    | undefined;
+  return (
+    normalizeThoughtSignature(nested?.thoughtSignature) ??
+    normalizeThoughtSignature(nested?.thought_signature)
+  );
+};
+
+const isRawModelPart = (value: unknown): value is Part =>
+  !!value && typeof value === "object";
 
 /**
  * Convert provider-agnostic messages into Gemini contents + system instruction.
@@ -98,21 +148,41 @@ export const toGeminiRequestParts = (
       continue;
     }
 
-    // assistant
+    // Prefer exact model parts from the prior response (required for Gemini 3 signatures).
+    if (
+      Array.isArray(message.rawModelParts) &&
+      message.rawModelParts.length > 0 &&
+      message.rawModelParts.every(isRawModelPart)
+    ) {
+      contents.push({
+        role: "model",
+        parts: message.rawModelParts as Part[],
+      });
+      continue;
+    }
+
+    // assistant — reconstruct when raw parts are unavailable
     const parts: Part[] = [];
     if (message.content?.trim()) {
       parts.push({ text: message.content });
     }
     if (message.toolCalls?.length) {
-      for (const call of message.toolCalls) {
-        parts.push({
+      message.toolCalls.forEach((call, index) => {
+        const part: Part = {
           functionCall: {
             id: call.id,
             name: call.name,
             args: parseArgsObject(call.arguments),
           },
-        });
-      }
+        };
+        const signature =
+          call.thoughtSignature ??
+          (index === 0 ? SKIP_THOUGHT_SIGNATURE : undefined);
+        if (signature) {
+          part.thoughtSignature = signature;
+        }
+        parts.push(part);
+      });
     }
     contents.push({
       role: "model",
@@ -173,14 +243,58 @@ export class GeminiProvider implements LLMProvider {
       },
     });
 
-    const text = response.text?.trim() ? response.text : null;
-    const functionCalls = response.functionCalls ?? [];
+    const modelContent = response.candidates?.[0]?.content;
+    const candidateParts = modelContent?.parts ?? [];
+    const toolCalls: ChatResponse["toolCalls"] = [];
+    let textChunks = "";
 
-    const toolCalls = functionCalls.map((call, index) => ({
-      id: call.id ?? `gemini_call_${index}`,
-      name: call.name ?? "unknown",
-      arguments: JSON.stringify(call.args ?? {}),
-    }));
+    for (const [index, part] of candidateParts.entries()) {
+      if (part.functionCall) {
+        const thoughtSignature = readPartThoughtSignature(part);
+        toolCalls.push({
+          id: part.functionCall.id ?? `gemini_call_${index}`,
+          name: part.functionCall.name ?? "unknown",
+          arguments: JSON.stringify(part.functionCall.args ?? {}),
+          ...(thoughtSignature ? { thoughtSignature } : {}),
+        });
+        continue;
+      }
+      // Skip thought-only parts; keep visible text for transcript/fallback parsing.
+      if (part.text && !part.thought) {
+        textChunks += part.text;
+      }
+    }
+
+    // Fallback if SDK flattens functionCalls but parts are empty/odd.
+    if (toolCalls.length === 0 && response.functionCalls?.length) {
+      for (const [index, call] of response.functionCalls.entries()) {
+        toolCalls.push({
+          id: call.id ?? `gemini_call_${index}`,
+          name: call.name ?? "unknown",
+          arguments: JSON.stringify(call.args ?? {}),
+        });
+      }
+    }
+
+    // Ensure the first function call always carries a signature when we must reconstruct.
+    if (toolCalls.length > 0 && !toolCalls[0]?.thoughtSignature) {
+      const signedPart = candidateParts.find(
+        (part) => part.functionCall && readPartThoughtSignature(part),
+      );
+      const recovered = signedPart
+        ? readPartThoughtSignature(signedPart)
+        : undefined;
+      toolCalls[0] = {
+        ...toolCalls[0]!,
+        thoughtSignature: recovered ?? SKIP_THOUGHT_SIGNATURE,
+      };
+    }
+
+    const text = textChunks.trim()
+      ? textChunks
+      : response.text?.trim()
+        ? response.text
+        : null;
 
     const finishReason =
       response.candidates?.[0]?.finishReason?.toString() ?? null;
@@ -189,6 +303,7 @@ export class GeminiProvider implements LLMProvider {
       content: text,
       toolCalls,
       finishReason,
+      rawModelParts: candidateParts.length > 0 ? candidateParts : undefined,
       raw: response,
     };
   }

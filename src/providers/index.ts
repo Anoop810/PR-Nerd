@@ -11,6 +11,7 @@ import {
 export type { LLMProvider, ChatRequest, ChatResponse, LLMMessage } from "./types.js";
 export {
   GeminiProvider,
+  normalizeThoughtSignature,
   resolveGeminiApiKey,
   toGeminiRequestParts,
 } from "./gemini.js";

@@ -1,5 +1,5 @@
 provider: gemini
-model: gemini-2.5-flash
+model: gemini-3.6-flash
 
 review:
   max_iterations: 8

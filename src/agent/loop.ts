@@ -189,6 +189,9 @@ export class AgentLoop {
         role: "assistant",
         content: response.content,
         toolCalls: response.toolCalls,
+        ...(response.rawModelParts?.length
+          ? { rawModelParts: response.rawModelParts }
+          : {}),
       });
 
       for (const call of response.toolCalls) {

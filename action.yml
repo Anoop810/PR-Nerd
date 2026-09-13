@@ -13,7 +13,7 @@ inputs:
   model:
     description: Model name
     required: false
-    default: gemini-2.5-flash
+    default: gemini-3.6-flash
   max_iterations:
     description: Maximum agent investigation iterations
     required: false

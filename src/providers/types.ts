@@ -4,6 +4,8 @@ export type ToolCallRequest = {
   id: string;
   name: string;
   arguments: string;
+  /** Gemini 3+ opaque signature required when echoing functionCall parts. */
+  thoughtSignature?: string;
 };
 
 export type LLMMessage = {
@@ -12,6 +14,11 @@ export type LLMMessage = {
   toolCallId?: string;
   name?: string;
   toolCalls?: ToolCallRequest[];
+  /**
+   * Exact model content parts from the prior provider response.
+   * Gemini 3 requires these (incl. thought signatures) to be echoed verbatim.
+   */
+  rawModelParts?: unknown[];
 };
 
 export type ToolDefinition = {
@@ -32,6 +39,8 @@ export type ChatResponse = {
   content: string | null;
   toolCalls: ToolCallRequest[];
   finishReason: string | null;
+  /** Provider-native model parts to echo on the next turn (Gemini thought signatures). */
+  rawModelParts?: unknown[];
   raw?: unknown;
 };
 
