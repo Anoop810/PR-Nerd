@@ -7,6 +7,7 @@ import type {
 import {
   AnthropicProvider,
   createProvider,
+  isDailyQuotaExhausted,
   isRetryableGeminiError,
   normalizeThoughtSignature,
   resolveGeminiApiKey,
@@ -184,6 +185,14 @@ describe("provider abstraction", () => {
       ),
     ).toBe(true);
     expect(isRetryableGeminiError(new Error("INVALID_ARGUMENT"))).toBe(false);
+  });
+
+  it("does not retry daily free-tier quota exhaustion", () => {
+    const daily = new Error(
+      '{"error":{"code":429,"message":"Quota exceeded for metric: generativelanguage.googleapis.com/generate_content_free_tier_requests","status":"RESOURCE_EXHAUSTED","details":[{"@type":"type.googleapis.com/google.rpc.QuotaFailure","violations":[{"quotaId":"GenerateRequestsPerDayPerProjectPerModel-FreeTier"}]}]}}',
+    );
+    expect(isDailyQuotaExhausted(daily)).toBe(true);
+    expect(isRetryableGeminiError(daily)).toBe(false);
   });
 
   it("mock provider is usable as LLMProvider", async () => {

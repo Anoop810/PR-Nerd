@@ -11,6 +11,7 @@ import {
 export type { LLMProvider, ChatRequest, ChatResponse, LLMMessage } from "./types.js";
 export {
   GeminiProvider,
+  isDailyQuotaExhausted,
   isRetryableGeminiError,
   normalizeThoughtSignature,
   resolveGeminiApiKey,
@@ -22,6 +23,7 @@ export type ProviderOptions = {
   maxRetries?: number;
   retryBaseMs?: number;
   retryMaxMs?: number;
+  fallbackModels?: string[];
 };
 
 /**

@@ -38,6 +38,7 @@ export type GeminiProviderOptions = {
   maxRetries?: number;
   retryBaseMs?: number;
   retryMaxMs?: number;
+  fallbackModels?: string[];
 };
 
 const readErrorStatus = (error: unknown): number | undefined => {
@@ -69,7 +70,22 @@ const errorText = (error: unknown): string => {
   return chunks.join("\n");
 };
 
+export const isDailyQuotaExhausted = (error: unknown): boolean => {
+  const text = errorText(error);
+  return (
+    /GenerateRequestsPerDay/i.test(text) ||
+    /PerDayPerProjectPerModel/i.test(text) ||
+    /free_tier_requests/i.test(text) ||
+    (/exceeded your current quota/i.test(text) &&
+      /FreeTier/i.test(text) &&
+      /PerDay/i.test(text))
+  );
+};
+
 export const isRetryableGeminiError = (error: unknown): boolean => {
+  // Daily free-tier caps will not recover within a job — fail fast / try fallbacks.
+  if (isDailyQuotaExhausted(error)) return false;
+
   const status = readErrorStatus(error);
   if (status !== undefined && [408, 429, 500, 502, 503, 504].includes(status)) {
     return true;
@@ -88,7 +104,6 @@ export const isRetryableGeminiError = (error: unknown): boolean => {
     /high demand/i.test(text) ||
     /try again later/i.test(text) ||
     /temporarily/i.test(text) ||
-    /quota/i.test(text) ||
     /rate limit/i.test(text) ||
     /ECONNRESET/i.test(text) ||
     /ETIMEDOUT/i.test(text) ||
@@ -285,6 +300,8 @@ export class GeminiProvider implements LLMProvider {
   private readonly maxRetries: number;
   private readonly retryBaseMs: number;
   private readonly retryMaxMs: number;
+  private readonly fallbackModels: string[];
+  private activeModelOverride?: string;
 
   constructor(options: GeminiProviderOptions = {}) {
     const apiKey = resolveGeminiApiKey(options.apiKey);
@@ -297,9 +314,62 @@ export class GeminiProvider implements LLMProvider {
     this.maxRetries = options.maxRetries ?? DEFAULT_MAX_RETRIES;
     this.retryBaseMs = options.retryBaseMs ?? DEFAULT_RETRY_BASE_MS;
     this.retryMaxMs = options.retryMaxMs ?? DEFAULT_RETRY_MAX_MS;
+    this.fallbackModels = (options.fallbackModels ?? []).filter(
+      (model) => typeof model === "string" && model.trim().length > 0,
+    );
   }
 
   async chat(request: ChatRequest): Promise<ChatResponse> {
+    const models = this.resolveModelCandidates(request.model);
+    let lastError: unknown;
+
+    for (let index = 0; index < models.length; index += 1) {
+      const model = models[index]!;
+      try {
+        const response = await this.chatWithModel(request, model);
+        if (model !== request.model || this.activeModelOverride) {
+          this.activeModelOverride = model;
+        }
+        return response;
+      } catch (error) {
+        lastError = error;
+        const hasFallback = index < models.length - 1;
+        if (isDailyQuotaExhausted(error) && hasFallback) {
+          const next = models[index + 1]!;
+          console.error(
+            `[prnerd] Daily/free-tier quota exhausted for model "${model}". Falling back to "${next}".`,
+          );
+          this.activeModelOverride = next;
+          continue;
+        }
+        if (isDailyQuotaExhausted(error)) {
+          throw new Error(
+            `Gemini free-tier daily quota exhausted for model "${model}" (and no usable fallbacks remained). Enable billing at https://ai.google.dev/ or wait for the daily reset, then re-run the review.`,
+          );
+        }
+        throw error;
+      }
+    }
+
+    throw lastError instanceof Error
+      ? lastError
+      : new Error(String(lastError));
+  }
+
+  private resolveModelCandidates(requestedModel: string): string[] {
+    const ordered = [
+      this.activeModelOverride,
+      requestedModel,
+      ...this.fallbackModels,
+    ].filter((model): model is string => Boolean(model?.trim()));
+
+    return [...new Set(ordered)];
+  }
+
+  private async chatWithModel(
+    request: ChatRequest,
+    model: string,
+  ): Promise<ChatResponse> {
     const { systemInstruction, contents } = toGeminiRequestParts(
       request.messages,
     );
@@ -309,7 +379,7 @@ export class GeminiProvider implements LLMProvider {
     }
 
     const response = await this.generateContentWithRetry({
-      model: request.model,
+      model,
       contents,
       config: {
         temperature: request.temperature ?? 0.1,
@@ -403,6 +473,8 @@ export class GeminiProvider implements LLMProvider {
         return await this.client.models.generateContent(params);
       } catch (error) {
         lastError = error;
+        if (isDailyQuotaExhausted(error)) throw error;
+
         const canRetry =
           attempt < this.maxRetries && isRetryableGeminiError(error);
         if (!canRetry) throw error;

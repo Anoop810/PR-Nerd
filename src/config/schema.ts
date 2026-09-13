@@ -48,6 +48,8 @@ const StaticPackConfigSchema = z
 export const ConfigSchema = z.object({
   provider: ProviderNameSchema.default("gemini"),
   model: z.string().default("gemini-3.6-flash"),
+  fallbackModels: z.array(z.string()).optional(),
+  fallback_models: z.array(z.string()).optional(),
   review: ReviewConfigSchema.default({}),
   staticPack: StaticPackConfigSchema.default({}),
   static_pack: StaticPackConfigSchema.optional(),
@@ -70,6 +72,10 @@ export const ConfigSchema = z.object({
 }).transform((value) => ({
   provider: value.provider,
   model: value.model,
+  fallbackModels: value.fallbackModels ?? value.fallback_models ?? [
+    "gemini-2.0-flash",
+    "gemini-flash-latest",
+  ],
   review: value.review,
   staticPack: value.static_pack ?? value.staticPack,
   paths: value.paths,

@@ -66,6 +66,7 @@ const main = async (): Promise<void> => {
       ...(explicitKey ? { apiKey: explicitKey } : {}),
       ...(Number.isFinite(maxRetries) ? { maxRetries } : {}),
       ...(Number.isFinite(retryBaseMs) ? { retryBaseMs } : {}),
+      fallbackModels: config.fallbackModels,
     });
   } catch (error) {
     throw new Error(
