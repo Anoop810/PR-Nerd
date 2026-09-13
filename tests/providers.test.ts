@@ -7,6 +7,7 @@ import type {
 import {
   AnthropicProvider,
   createProvider,
+  isRetryableGeminiError,
   normalizeThoughtSignature,
   resolveGeminiApiKey,
   toGeminiRequestParts,
@@ -167,6 +168,17 @@ describe("provider abstraction", () => {
     );
     expect(normalizeThoughtSignature("abc")).toBe("abc");
     expect(normalizeThoughtSignature(undefined)).toBeUndefined();
+  });
+
+  it("detects retryable Gemini capacity errors", () => {
+    expect(
+      isRetryableGeminiError(
+        new Error(
+          '{"error":{"code":503,"message":"This model is currently experiencing high demand.","status":"UNAVAILABLE"}}',
+        ),
+      ),
+    ).toBe(true);
+    expect(isRetryableGeminiError(new Error("INVALID_ARGUMENT"))).toBe(false);
   });
 
   it("mock provider is usable as LLMProvider", async () => {

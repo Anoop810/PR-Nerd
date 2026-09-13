@@ -18,6 +18,9 @@ const ENV_KEYS = [
 /** Last-resort token when a signature was lost; Gemini documents this escape hatch. */
 const SKIP_THOUGHT_SIGNATURE = "skip_thought_signature_validator";
 
+const DEFAULT_MAX_RETRIES = 5;
+const DEFAULT_RETRY_BASE_MS = 1500;
+
 export const resolveGeminiApiKey = (
   explicit?: string,
 ): string | undefined => {
@@ -31,6 +34,41 @@ export const resolveGeminiApiKey = (
 
 export type GeminiProviderOptions = {
   apiKey?: string;
+  maxRetries?: number;
+  retryBaseMs?: number;
+};
+
+export const isRetryableGeminiError = (error: unknown): boolean => {
+  const text =
+    error instanceof Error
+      ? `${error.message}\n${error.stack ?? ""}`
+      : String(error);
+
+  return (
+    /\b503\b/.test(text) ||
+    /\b429\b/.test(text) ||
+    /\b500\b/.test(text) ||
+    /UNAVAILABLE/i.test(text) ||
+    /RESOURCE_EXHAUSTED/i.test(text) ||
+    /high demand/i.test(text) ||
+    /try again later/i.test(text) ||
+    /quota/i.test(text) ||
+    /rate limit/i.test(text) ||
+    /ECONNRESET/i.test(text) ||
+    /ETIMEDOUT/i.test(text) ||
+    /socket hang up/i.test(text)
+  );
+};
+
+const sleep = (ms: number): Promise<void> =>
+  new Promise((resolve) => {
+    setTimeout(resolve, ms);
+  });
+
+const retryDelayMs = (attempt: number, baseMs: number): number => {
+  const expo = baseMs * 2 ** attempt;
+  const jitter = Math.floor(Math.random() * baseMs);
+  return Math.min(30_000, expo + jitter);
 };
 
 const toFunctionDeclarations = (
@@ -203,6 +241,8 @@ export const toGeminiRequestParts = (
 export class GeminiProvider implements LLMProvider {
   readonly name = "gemini";
   private readonly client: GoogleGenAI;
+  private readonly maxRetries: number;
+  private readonly retryBaseMs: number;
 
   constructor(options: GeminiProviderOptions = {}) {
     const apiKey = resolveGeminiApiKey(options.apiKey);
@@ -212,6 +252,8 @@ export class GeminiProvider implements LLMProvider {
       );
     }
     this.client = new GoogleGenAI({ apiKey });
+    this.maxRetries = options.maxRetries ?? DEFAULT_MAX_RETRIES;
+    this.retryBaseMs = options.retryBaseMs ?? DEFAULT_RETRY_BASE_MS;
   }
 
   async chat(request: ChatRequest): Promise<ChatResponse> {
@@ -223,7 +265,7 @@ export class GeminiProvider implements LLMProvider {
       contents.push({ role: "user", parts: [{ text: "Begin the review." }] });
     }
 
-    const response = await this.client.models.generateContent({
+    const response = await this.generateContentWithRetry({
       model: request.model,
       contents,
       config: {
@@ -306,5 +348,32 @@ export class GeminiProvider implements LLMProvider {
       rawModelParts: candidateParts.length > 0 ? candidateParts : undefined,
       raw: response,
     };
+  }
+
+  private async generateContentWithRetry(
+    params: Parameters<GoogleGenAI["models"]["generateContent"]>[0],
+  ): Promise<Awaited<ReturnType<GoogleGenAI["models"]["generateContent"]>>> {
+    let lastError: unknown;
+
+    for (let attempt = 0; attempt <= this.maxRetries; attempt += 1) {
+      try {
+        return await this.client.models.generateContent(params);
+      } catch (error) {
+        lastError = error;
+        const canRetry =
+          attempt < this.maxRetries && isRetryableGeminiError(error);
+        if (!canRetry) throw error;
+
+        const delay = retryDelayMs(attempt, this.retryBaseMs);
+        console.warn(
+          `[prnerd] Gemini transient error (attempt ${attempt + 1}/${this.maxRetries + 1}); retrying in ${delay}ms`,
+        );
+        await sleep(delay);
+      }
+    }
+
+    throw lastError instanceof Error
+      ? lastError
+      : new Error(String(lastError));
   }
 }
