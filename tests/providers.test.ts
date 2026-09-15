@@ -61,6 +61,11 @@ describe("provider abstraction", () => {
     expect(resolveGeminiApiKey(" gemini-explicit ")).toBe("gemini-explicit");
   });
 
+  it("strips newlines from Gemini API keys", () => {
+    expect(resolveGeminiApiKey("AIzaSyTest\r\n")).toBe("AIzaSyTest");
+    expect(resolveGeminiApiKey("AIza\nSyTest")).toBe("AIzaSyTest");
+  });
+
   it("maps tool turns into Gemini function responses", () => {
     const { systemInstruction, contents } = toGeminiRequestParts([
       { role: "system", content: "You are a reviewer." },

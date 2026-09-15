@@ -22,13 +22,21 @@ const DEFAULT_MAX_RETRIES = 8;
 const DEFAULT_RETRY_BASE_MS = 4000;
 const DEFAULT_RETRY_MAX_MS = 60_000;
 
+const sanitizeApiKey = (value: string | undefined): string | undefined => {
+  if (!value) return undefined;
+  // Secrets pasted into GitHub often include trailing/CRLF newlines, which break HTTP headers.
+  const cleaned = value.replace(/[\r\n\u0000]/g, "").trim();
+  return cleaned.length > 0 ? cleaned : undefined;
+};
+
 export const resolveGeminiApiKey = (
   explicit?: string,
 ): string | undefined => {
-  if (explicit?.trim()) return explicit.trim();
+  const fromExplicit = sanitizeApiKey(explicit);
+  if (fromExplicit) return fromExplicit;
   for (const key of ENV_KEYS) {
-    const value = process.env[key];
-    if (value?.trim()) return value.trim();
+    const cleaned = sanitizeApiKey(process.env[key]);
+    if (cleaned) return cleaned;
   }
   return undefined;
 };
@@ -309,6 +317,12 @@ export class GeminiProvider implements LLMProvider {
       throw new Error(
         "Gemini API key not found. Set GEMINI_API_KEY (BYOK) or pass apiKey.",
       );
+    }
+    // Keep env copies clean so the SDK never reads a newline-tainted secret.
+    for (const key of ENV_KEYS) {
+      if (process.env[key]) {
+        process.env[key] = sanitizeApiKey(process.env[key]) ?? apiKey;
+      }
     }
     this.client = new GoogleGenAI({ apiKey });
     this.maxRetries = options.maxRetries ?? DEFAULT_MAX_RETRIES;
