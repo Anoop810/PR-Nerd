@@ -47,9 +47,9 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/Anoop810/PR-Nerd.git"
+    "url": "git+https://github.com/Anoop810/PushFox.git"
   },
-  "homepage": "https://github.com/Anoop810/PR-Nerd#readme",
+  "homepage": "https://github.com/Anoop810/PushFox#readme",
   "dependencies": {
     "@google/genai": "^2.22.0",
     "commander": "^13.1.0",

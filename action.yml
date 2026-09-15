@@ -42,7 +42,7 @@ runs:
           npm ci
           npm run build
         else
-          npm install -g github:Anoop810/PR-Nerd || npm install -g "$(pwd)"
+          npm install -g github:Anoop810/PushFox || npm install -g "$(pwd)"
         fi
 
     - name: Resolve PR refs

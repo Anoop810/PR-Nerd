@@ -65,7 +65,7 @@ Example:
 Requires **Node.js 20+**. `git` is required. `rg` (ripgrep) is recommended for faster search.
 
 ```bash
-npm install -g github:Anoop810/PR-Nerd
+npm install -g github:Anoop810/PushFox
 # or from this repo:
 npm install
 npm run build
@@ -189,7 +189,7 @@ jobs:
         with:
           node-version: "22"
 
-      - run: npm install -g github:Anoop810/PR-Nerd
+      - run: npm install -g github:Anoop810/PushFox
 
       - name: Run PushFox
         env:

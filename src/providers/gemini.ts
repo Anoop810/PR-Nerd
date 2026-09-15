@@ -337,7 +337,7 @@ export class GeminiProvider implements LLMProvider {
         if (isDailyQuotaExhausted(error) && hasFallback) {
           const next = models[index + 1]!;
           console.error(
-            `[prnerd] Daily/free-tier quota exhausted for model "${model}". Falling back to "${next}".`,
+            `[pushfox] Daily/free-tier quota exhausted for model "${model}". Falling back to "${next}".`,
           );
           this.activeModelOverride = next;
           continue;
@@ -486,10 +486,10 @@ export class GeminiProvider implements LLMProvider {
         );
         const status = readErrorStatus(error);
         console.error(
-          `[prnerd] Gemini transient error${status ? ` status=${status}` : ""} (attempt ${attempt + 1}/${this.maxRetries + 1}); retrying in ${delay}ms`,
+          `[pushfox] Gemini transient error${status ? ` status=${status}` : ""} (attempt ${attempt + 1}/${this.maxRetries + 1}); retrying in ${delay}ms`,
         );
         console.error(
-          `[prnerd] ${error instanceof Error ? error.message : String(error)}`,
+          `[pushfox] ${error instanceof Error ? error.message : String(error)}`,
         );
         await sleep(delay);
       }
