@@ -12,7 +12,7 @@ const ENV_KEYS = [
   "GEMINI_API_KEY",
   "GOOGLE_API_KEY",
   "GOOGLE_GENERATIVE_AI_API_KEY",
-  "PRNERD_GEMINI_API_KEY",
+  "PUSHFOX_GEMINI_API_KEY",
 ] as const;
 
 /** Last-resort token when a signature was lost; Gemini documents this escape hatch. */

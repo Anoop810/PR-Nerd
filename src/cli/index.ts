@@ -42,9 +42,9 @@ const printEvent = (event: AgentEvent, verbose: boolean): void => {
 const program = new Command();
 
 program
-  .name("pr-review")
+  .name("pushfox")
   .description(
-    "PrNerd — BYOK AI PR reviewer that investigates before it reviews",
+    "PushFox — BYOK AI PR reviewer that investigates before it reviews",
   )
   .version("0.1.0");
 
@@ -151,9 +151,9 @@ program
   .description("Print a previously built static-pack.json")
   .option("--repo <path>", "Repository root", ".")
   .action((opts: { repo: string }) => {
-    const path = resolve(opts.repo, ".pr-review", "static-pack.json");
+    const path = resolve(opts.repo, ".pushfox", "static-pack.json");
     if (!existsSync(path)) {
-      console.error(`No pack found at ${path}. Run: pr-review pack --base <ref>`);
+      console.error(`No pack found at ${path}. Run: pushfox pack --base <ref>`);
       process.exitCode = 1;
       return;
     }

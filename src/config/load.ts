@@ -3,15 +3,14 @@ import { join } from "node:path";
 import { parse as parseYaml } from "yaml";
 import {
   ConfigSchema,
-  DEFAULT_CONFIG,
-  type PrReviewerConfig,
+  type PushFoxConfig,
 } from "./schema.js";
 
 const CONFIG_FILENAMES = [
-  ".pr-reviewer.yml",
-  ".pr-reviewer.yaml",
-  "pr-reviewer.yml",
-  "pr-reviewer.yaml",
+  ".pushfox.yml",
+  ".pushfox.yaml",
+  "pushfox.yml",
+  "pushfox.yaml",
 ] as const;
 
 export const findConfigPath = (repoRoot: string): string | null => {
@@ -32,7 +31,7 @@ export const loadConfig = (
     maxIterations: number;
     severityThreshold: string;
   }> = {},
-): PrReviewerConfig => {
+): PushFoxConfig => {
   const path = findConfigPath(repoRoot);
   let raw: unknown = {};
 
@@ -59,4 +58,9 @@ export const loadConfig = (
   });
 };
 
-export { DEFAULT_CONFIG, ConfigSchema, type PrReviewerConfig };
+export {
+  DEFAULT_CONFIG,
+  ConfigSchema,
+  type PushFoxConfig,
+  type PrReviewerConfig,
+} from "./schema.js";

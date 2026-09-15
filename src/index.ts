@@ -13,6 +13,7 @@ export {
   loadConfig,
   findConfigPath,
   DEFAULT_CONFIG,
+  type PushFoxConfig,
   type PrReviewerConfig,
 } from "./config/load.js";
 export {

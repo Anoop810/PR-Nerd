@@ -15,4 +15,4 @@ paths:
     - build
     - coverage
     - .git
-    - .pr-review
+    - .pushfox

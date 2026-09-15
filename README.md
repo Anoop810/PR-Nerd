@@ -1,8 +1,8 @@
-# PrNerd
+# PushFox
 
 **An AI PR reviewer that investigates before it reviews.**
 
-PrNerd is a reusable, open-source, **BYOK** (Bring Your Own Key) pull-request review tool. It does not dump a diff into an LLM and hope for the best. It builds a deterministic **Static Context Pack**, then runs an **agentic investigation loop** that can search and read the repository until it has enough confidence to produce a **structured review**.
+PushFox is a reusable, open-source, **BYOK** (Bring Your Own Key) pull-request review tool. It does not dump a diff into an LLM and hope for the best. It builds a deterministic **Static Context Pack**, then runs an **agentic investigation loop** that can search and read the repository until it has enough confidence to produce a **structured review**.
 
 ```
 Pull Request
@@ -19,7 +19,7 @@ GitHub PR / CLI
 Philosophy: **Prepare → Investigate → Understand → Review**  
 Not: Diff → LLM → Comments
 
-> PrNerd aims for high-signal findings. It does **not** claim to find every bug.
+> PushFox aims for high-signal findings. It does **not** claim to find every bug.
 
 ---
 
@@ -27,7 +27,7 @@ Not: Diff → LLM → Comments
 
 Most “AI PR review” tools send a patch to a model and paste the reply as comments.
 
-PrNerd separates two kinds of context:
+PushFox separates two kinds of context:
 
 | Stage | What it is | Who runs it |
 |--------|------------|-------------|
@@ -46,8 +46,8 @@ Example:
 
 ## Features (V1)
 
-- **BYOK** — your API key, your provider account; keys are never hard-coded or persisted by PrNerd
-- **Static Context Pack** — inspectable at `.pr-review/static-pack.json`
+- **BYOK** — your API key, your provider account; keys are never hard-coded or persisted by PushFox
+- **Static Context Pack** — inspectable at `.pushfox/static-pack.json`
 - **Agent tools** — `get_diff`, `read_file`, `search_code`, `list_files`, `find_references`, `get_file_history`, `submit_review`
 - **Hard iteration limit** — investigation cannot run forever
 - **Structured findings** — severity, file, line, explanation, suggestion
@@ -56,6 +56,7 @@ Example:
 - **Local CLI** — debug without GitHub
 - **GitHub Actions** — optional PR comment publishing
 - **No vector DB** — git + filesystem + `rg` only
+- **Gemini** — default (and currently only) LLM provider
 
 ---
 
@@ -64,7 +65,7 @@ Example:
 Requires **Node.js 20+**. `git` is required. `rg` (ripgrep) is recommended for faster search.
 
 ```bash
-npm install -g prnerd
+npm install -g github:Anoop810/PR-Nerd
 # or from this repo:
 npm install
 npm run build
@@ -85,9 +86,9 @@ $env:GEMINI_API_KEY = "your-key"
 export GEMINI_API_KEY=your-key
 ```
 
-In GitHub Actions, store the key as a repository secret (`GEMINI_API_KEY`) and pass it into the workflow. PrNerd only sends the key to the configured LLM provider.
+In GitHub Actions, store the key as a repository secret (`GEMINI_API_KEY`) and pass it into the workflow. PushFox only sends the key to the configured LLM provider.
 
-Never commit keys. Never put keys in `.pr-reviewer.yml`.
+Never commit keys. Never put keys in `.pushfox.yml`.
 
 `GOOGLE_API_KEY` and `GOOGLE_GENERATIVE_AI_API_KEY` are also accepted as Gemini key aliases.
 
@@ -98,30 +99,30 @@ Never commit keys. Never put keys in `.pr-reviewer.yml`.
 ### 1. Build the Static Pack only
 
 ```bash
-pr-review pack --base main --head HEAD
+pushfox pack --base main --head HEAD
 ```
 
-Writes `.pr-review/static-pack.json`.
+Writes `.pushfox/static-pack.json`.
 
 ### 2. Full review
 
 ```bash
-pr-review review --base main --head HEAD --verbose
+pushfox review --base main --head HEAD --verbose
 ```
 
 Options:
 
 ```bash
-pr-review review --base main --head HEAD --json
-pr-review review --base main --head HEAD --markdown
-pr-review review --base main --head HEAD --model gemini-2.5-flash --max-iterations 6
-pr-review show-pack
+pushfox review --base main --head HEAD --json
+pushfox review --base main --head HEAD --markdown
+pushfox review --base main --head HEAD --model gemini-2.5-flash --max-iterations 6
+pushfox show-pack
 ```
 
 ### Example review output
 
 ```markdown
-## PrNerd Review
+## PushFox Review
 
 Authentication error paths look incomplete when the upstream IdP times out.
 
@@ -142,7 +143,7 @@ Empty reviews are valid when nothing meaningful is found.
 
 ## Configuration
 
-Optional `.pr-reviewer.yml` in the repo root:
+Optional `.pushfox.yml` in the repo root:
 
 ```yaml
 provider: gemini
@@ -163,10 +164,10 @@ paths:
 ## GitHub Action setup
 
 1. Add repository secret `GEMINI_API_KEY`
-2. Add a workflow such as `.github/workflows/pr-review.yml`:
+2. Add a workflow such as `.github/workflows/pushfox.yml`:
 
 ```yaml
-name: PrNerd PR Review
+name: PushFox PR Review
 
 on:
   pull_request:
@@ -188,21 +189,21 @@ jobs:
         with:
           node-version: "22"
 
-      - run: npm install -g prnerd
+      - run: npm install -g github:Anoop810/PR-Nerd
 
-      - name: Run PrNerd
+      - name: Run PushFox
         env:
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          PRNERD_BASE_SHA: ${{ github.event.pull_request.base.sha }}
-          PRNERD_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
-          PRNERD_PR_NUMBER: ${{ github.event.pull_request.number }}
-          PRNERD_PR_TITLE: ${{ github.event.pull_request.title }}
-          PRNERD_PR_BODY: ${{ github.event.pull_request.body }}
-          PRNERD_PR_AUTHOR: ${{ github.event.pull_request.user.login }}
-          PRNERD_PR_URL: ${{ github.event.pull_request.html_url }}
-          PRNERD_REPOSITORY: ${{ github.repository }}
-        run: node "$(npm root -g)/prnerd/dist/github/action.js"
+          PUSHFOX_BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          PUSHFOX_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          PUSHFOX_PR_NUMBER: ${{ github.event.pull_request.number }}
+          PUSHFOX_PR_TITLE: ${{ github.event.pull_request.title }}
+          PUSHFOX_PR_BODY: ${{ github.event.pull_request.body }}
+          PUSHFOX_PR_AUTHOR: ${{ github.event.pull_request.user.login }}
+          PUSHFOX_PR_URL: ${{ github.event.pull_request.html_url }}
+          PUSHFOX_REPOSITORY: ${{ github.repository }}
+        run: node "$(npm root -g)/pushfox/dist/github/action.js"
 ```
 
 V1 publishes a single structured PR comment (not inline line comments).
@@ -228,7 +229,7 @@ GitHub Action / CLI
         ↓
    Review Engine
         ↓
- Static Pack Builder  →  .pr-review/static-pack.json
+ Static Pack Builder  →  .pushfox/static-pack.json
         ↓
     Agent Loop
    ↙    ↓    ↘
@@ -236,7 +237,7 @@ search read diff / history
    ↘    ↓    ↙
    Repository
         ↓
-   LLM Provider (BYOK)
+   LLM Provider (BYOK Gemini)
         ↓
  Structured Findings → CLI / GitHub comment
 ```
@@ -249,10 +250,10 @@ src/
   static-pack/   # StaticPackBuilder + schema
   tools/         # repository tools
   providers/     # LLMProvider + Gemini
-  review/        # ReviewEngine + findings schema
+  review/        # ReviewEngine + findings
   github/        # Action entry + comment publishing
-  config/        # .pr-reviewer.yml
-  cli/           # pr-review CLI
+  config/        # .pushfox.yml
+  cli/           # pushfox CLI
   utils/         # git/exec helpers
 ```
 
@@ -308,11 +309,11 @@ Tests mock the LLM. No real API calls in CI.
 |----------|---------|
 | `GEMINI_API_KEY` | BYOK key for Gemini |
 | `GOOGLE_API_KEY` | Alias for Gemini BYOK key |
-| `PRNERD_PROVIDER` | Provider override (use `gemini`) |
-| `PRNERD_MODEL` | Model override (e.g. `gemini-2.5-flash`) |
-| `PRNERD_MAX_ITERATIONS` | Agent iteration cap |
-| `PRNERD_SEVERITY_THRESHOLD` | Minimum reported severity |
-| `PRNERD_PUBLISH` | `false` to skip GitHub comment |
+| `PUSHFOX_PROVIDER` | Provider override (use `gemini`) |
+| `PUSHFOX_MODEL` | Model override (e.g. `gemini-2.5-flash`) |
+| `PUSHFOX_MAX_ITERATIONS` | Agent iteration cap |
+| `PUSHFOX_SEVERITY_THRESHOLD` | Minimum reported severity |
+| `PUSHFOX_PUBLISH` | `false` to skip GitHub comment |
 | `GITHUB_TOKEN` | Publish PR comments in Actions |
 
 ---

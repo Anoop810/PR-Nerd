@@ -39,7 +39,7 @@ describe("github markdown formatting", () => {
       findings: [],
       investigatedFiles: [],
     });
-    expect(md).toContain("PrNerd Review");
+    expect(md).toContain("PushFox Review");
     expect(md).toContain("No findings");
   });
 

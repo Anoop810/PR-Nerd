@@ -9,7 +9,7 @@ import {
 } from "../src/tools/index.js";
 import type { ToolContext } from "../src/tools/types.js";
 
-const root = join(tmpdir(), `prnerd-tools-${Date.now()}`);
+const root = join(tmpdir(), `pushfox-tools-${Date.now()}`);
 
 beforeAll(async () => {
   mkdirSync(join(root, "src"), { recursive: true });

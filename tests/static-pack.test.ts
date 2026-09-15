@@ -7,7 +7,7 @@ import { StaticPackBuilder } from "../src/static-pack/builder.js";
 import { DEFAULT_CONFIG } from "../src/config/schema.js";
 import { StaticPackSchema } from "../src/static-pack/schema.js";
 
-const root = join(tmpdir(), `prnerd-pack-${Date.now()}`);
+const root = join(tmpdir(), `pushfox-pack-${Date.now()}`);
 
 beforeAll(async () => {
   mkdirSync(join(root, "src"), { recursive: true });
@@ -75,7 +75,7 @@ describe("StaticPackBuilder", () => {
     expect(parsed.imports.some((i) => i.file.includes("math.ts"))).toBe(true);
     expect(parsed.relatedTests.some((t) => t.includes("math"))).toBe(true);
 
-    const out = join(root, ".pr-review", "static-pack.json");
+    const out = join(root, ".pushfox", "static-pack.json");
     expect(existsSync(out)).toBe(true);
     const disk = JSON.parse(readFileSync(out, "utf8"));
     expect(disk.comparison.headSha).toBe(parsed.comparison.headSha);

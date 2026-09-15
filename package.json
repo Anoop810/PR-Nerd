@@ -1,11 +1,10 @@
 {
-  "name": "prnerd",
+  "name": "pushfox",
   "version": "0.1.0",
-  "description": "BYOK AI PR reviewer that investigates before it reviews — Static Pack → Agentic Investigation → Structured Review",
+  "description": "PushFox — BYOK AI PR reviewer that investigates before it reviews — Static Pack → Agentic Investigation → Structured Review",
   "type": "module",
   "bin": {
-    "pr-review": "./dist/cli/index.js",
-    "prnerd": "./dist/cli/index.js"
+    "pushfox": "./dist/cli/index.js"
   },
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
@@ -35,15 +34,22 @@
     "node": ">=20"
   },
   "keywords": [
+    "pushfox",
     "pr-review",
     "code-review",
     "ai",
     "byok",
     "github-actions",
     "static-pack",
-    "agent"
+    "agent",
+    "gemini"
   ],
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Anoop810/PR-Nerd.git"
+  },
+  "homepage": "https://github.com/Anoop810/PR-Nerd#readme",
   "dependencies": {
     "@google/genai": "^2.22.0",
     "commander": "^13.1.0",

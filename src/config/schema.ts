@@ -63,7 +63,7 @@ export const ConfigSchema = z.object({
           "build",
           ".git",
           "coverage",
-          ".pr-review",
+          ".pushfox",
           "vendor",
           ".next",
         ]),
@@ -81,6 +81,9 @@ export const ConfigSchema = z.object({
   paths: value.paths,
 }));
 
-export type PrReviewerConfig = z.infer<typeof ConfigSchema>;
+export type PushFoxConfig = z.infer<typeof ConfigSchema>;
 
-export const DEFAULT_CONFIG: PrReviewerConfig = ConfigSchema.parse({});
+/** @deprecated Use PushFoxConfig */
+export type PrReviewerConfig = PushFoxConfig;
+
+export const DEFAULT_CONFIG: PushFoxConfig = ConfigSchema.parse({});

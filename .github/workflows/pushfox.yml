@@ -1,4 +1,4 @@
-name: PrNerd PR Review
+name: PushFox PR Review
 
 on:
   pull_request:
@@ -27,17 +27,17 @@ jobs:
           npm ci
           npm run build
 
-      - name: Run PrNerd
+      - name: Run PushFox
         env:
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          PRNERD_BASE_SHA: ${{ github.event.pull_request.base.sha }}
-          PRNERD_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
-          PRNERD_PR_NUMBER: ${{ github.event.pull_request.number }}
-          PRNERD_PR_TITLE: ${{ github.event.pull_request.title }}
-          PRNERD_PR_BODY: ${{ github.event.pull_request.body }}
-          PRNERD_PR_AUTHOR: ${{ github.event.pull_request.user.login }}
-          PRNERD_PR_URL: ${{ github.event.pull_request.html_url }}
-          PRNERD_REPOSITORY: ${{ github.repository }}
-          PRNERD_PUBLISH: "true"
+          PUSHFOX_BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          PUSHFOX_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          PUSHFOX_PR_NUMBER: ${{ github.event.pull_request.number }}
+          PUSHFOX_PR_TITLE: ${{ github.event.pull_request.title }}
+          PUSHFOX_PR_BODY: ${{ github.event.pull_request.body }}
+          PUSHFOX_PR_AUTHOR: ${{ github.event.pull_request.user.login }}
+          PUSHFOX_PR_URL: ${{ github.event.pull_request.html_url }}
+          PUSHFOX_REPOSITORY: ${{ github.repository }}
+          PUSHFOX_PUBLISH: "true"
         run: node dist/github/action.js

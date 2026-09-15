@@ -7,7 +7,7 @@ import {
   statSync,
 } from "node:fs";
 import { dirname, join, relative } from "node:path";
-import type { PrReviewerConfig } from "../config/schema.js";
+import type { PushFoxConfig } from "../config/schema.js";
 import {
   guessLanguage,
   isIgnoredPath,
@@ -27,7 +27,7 @@ export type StaticPackBuilderOptions = {
   repoRoot: string;
   base: string;
   head: string;
-  config: PrReviewerConfig;
+  config: PushFoxConfig;
   pr?: StaticPack["pr"];
   outputPath?: string;
 };
@@ -415,7 +415,7 @@ export class StaticPackBuilder {
     });
 
     const outputPath =
-      options.outputPath ?? join(repoRoot, ".pr-review", "static-pack.json");
+      options.outputPath ?? join(repoRoot, ".pushfox", "static-pack.json");
     mkdirSync(dirname(outputPath), { recursive: true });
     writeFileSync(outputPath, JSON.stringify(pack, null, 2), "utf8");
 

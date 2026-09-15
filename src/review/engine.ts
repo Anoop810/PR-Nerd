@@ -1,6 +1,6 @@
 import { writeFileSync, mkdirSync } from "node:fs";
 import { dirname, join } from "node:path";
-import type { PrReviewerConfig } from "../config/schema.js";
+import type { PushFoxConfig } from "../config/schema.js";
 import { loadConfig } from "../config/load.js";
 import { createProvider, type LLMProvider } from "../providers/index.js";
 import { StaticPackBuilder } from "../static-pack/builder.js";
@@ -13,7 +13,7 @@ export type ReviewEngineInput = {
   base: string;
   head: string;
   pr?: StaticPack["pr"];
-  config?: PrReviewerConfig;
+  config?: PushFoxConfig;
   provider?: LLMProvider;
   packOnly?: boolean;
   onEvent?: (event: AgentEvent) => void;
@@ -37,7 +37,7 @@ export class ReviewEngine {
       loadConfig(input.repoRoot);
 
     const builder = new StaticPackBuilder();
-    const packPath = join(input.repoRoot, ".pr-review", "static-pack.json");
+    const packPath = join(input.repoRoot, ".pushfox", "static-pack.json");
     const pack = await builder.build({
       repoRoot: input.repoRoot,
       base: input.base,
@@ -72,7 +72,7 @@ export class ReviewEngine {
       },
     });
 
-    const reviewPath = join(input.repoRoot, ".pr-review", "review.json");
+    const reviewPath = join(input.repoRoot, ".pushfox", "review.json");
     mkdirSync(dirname(reviewPath), { recursive: true });
     writeFileSync(reviewPath, JSON.stringify(review, null, 2), "utf8");
 

@@ -21,37 +21,52 @@ const requireEnv = (name: string): string => {
   return value;
 };
 
+const env = (...names: string[]): string | undefined => {
+  for (const name of names) {
+    const value = process.env[name];
+    if (value) return value;
+  }
+  return undefined;
+};
+
 const main = async (): Promise<void> => {
   const workspace = resolve(process.env.GITHUB_WORKSPACE || process.cwd());
   const token = process.env.GITHUB_TOKEN || process.env.GH_TOKEN;
 
   const eventName = process.env.GITHUB_EVENT_NAME ?? "";
   const base =
-    process.env.PRNERD_BASE ||
+    env("PUSHFOX_BASE", "PRNERD_BASE") ||
     process.env.GITHUB_BASE_REF ||
     "main";
   const head =
-    process.env.PRNERD_HEAD ||
+    env("PUSHFOX_HEAD", "PRNERD_HEAD") ||
     process.env.GITHUB_HEAD_REF ||
     "HEAD";
 
   // Prefer SHAs when available (Actions checkout)
-  const baseSha = process.env.PRNERD_BASE_SHA;
-  const headSha = process.env.PRNERD_HEAD_SHA;
+  const baseSha = env("PUSHFOX_BASE_SHA", "PRNERD_BASE_SHA");
+  const headSha = env("PUSHFOX_HEAD_SHA", "PRNERD_HEAD_SHA");
+
+  const maxIterationsRaw = env(
+    "PUSHFOX_MAX_ITERATIONS",
+    "PRNERD_MAX_ITERATIONS",
+  );
 
   const config = loadConfig(workspace, {
-    provider: process.env.PRNERD_PROVIDER,
-    model: process.env.PRNERD_MODEL,
-    maxIterations: process.env.PRNERD_MAX_ITERATIONS
-      ? Number(process.env.PRNERD_MAX_ITERATIONS)
-      : undefined,
-    severityThreshold: process.env.PRNERD_SEVERITY_THRESHOLD,
+    provider: env("PUSHFOX_PROVIDER", "PRNERD_PROVIDER"),
+    model: env("PUSHFOX_MODEL", "PRNERD_MODEL"),
+    maxIterations: maxIterationsRaw ? Number(maxIterationsRaw) : undefined,
+    severityThreshold: env(
+      "PUSHFOX_SEVERITY_THRESHOLD",
+      "PRNERD_SEVERITY_THRESHOLD",
+    ),
   });
 
   const explicitKey =
     process.env.GEMINI_API_KEY ||
     process.env.GOOGLE_API_KEY ||
     process.env.GOOGLE_GENERATIVE_AI_API_KEY ||
+    process.env.PUSHFOX_GEMINI_API_KEY ||
     process.env.PRNERD_GEMINI_API_KEY;
 
   let provider;
@@ -77,6 +92,8 @@ const main = async (): Promise<void> => {
   }
   const engine = new ReviewEngine();
 
+  const prNumberRaw = env("PUSHFOX_PR_NUMBER", "PRNERD_PR_NUMBER");
+
   const result = await engine.run({
     repoRoot: workspace,
     base: baseSha || base,
@@ -84,13 +101,11 @@ const main = async (): Promise<void> => {
     config,
     provider,
     pr: {
-      number: process.env.PRNERD_PR_NUMBER
-        ? Number(process.env.PRNERD_PR_NUMBER)
-        : undefined,
-      title: process.env.PRNERD_PR_TITLE,
-      body: process.env.PRNERD_PR_BODY,
-      author: process.env.PRNERD_PR_AUTHOR,
-      url: process.env.PRNERD_PR_URL,
+      number: prNumberRaw ? Number(prNumberRaw) : undefined,
+      title: env("PUSHFOX_PR_TITLE", "PRNERD_PR_TITLE"),
+      body: env("PUSHFOX_PR_BODY", "PRNERD_PR_BODY"),
+      author: env("PUSHFOX_PR_AUTHOR", "PRNERD_PR_AUTHOR"),
+      url: env("PUSHFOX_PR_URL", "PRNERD_PR_URL"),
     },
     onEvent: (event: AgentEvent) => {
       if (event.type === "iteration") {
@@ -110,13 +125,16 @@ const main = async (): Promise<void> => {
   const body = formatReviewMarkdown(result.review);
   console.log(body);
 
+  const publishFlag = env("PUSHFOX_PUBLISH", "PRNERD_PUBLISH");
   const shouldPublish =
-    process.env.PRNERD_PUBLISH !== "false" &&
+    publishFlag !== "false" &&
     Boolean(token) &&
-    Boolean(process.env.PRNERD_PR_NUMBER || process.env.GITHUB_EVENT_PATH);
+    Boolean(prNumberRaw || process.env.GITHUB_EVENT_PATH);
 
   if (!shouldPublish) {
-    console.log("Skipping GitHub publish (no token/PR number or PRNERD_PUBLISH=false)");
+    console.log(
+      "Skipping GitHub publish (no token/PR number or PUSHFOX_PUBLISH=false)",
+    );
     return;
   }
 
@@ -124,11 +142,10 @@ const main = async (): Promise<void> => {
     throw new Error("GITHUB_TOKEN required to publish review comments");
   }
 
-  let pullNumber = process.env.PRNERD_PR_NUMBER
-    ? Number(process.env.PRNERD_PR_NUMBER)
-    : undefined;
+  let pullNumber = prNumberRaw ? Number(prNumberRaw) : undefined;
   let repository =
-    process.env.PRNERD_REPOSITORY || process.env.GITHUB_REPOSITORY;
+    env("PUSHFOX_REPOSITORY", "PRNERD_REPOSITORY") ||
+    process.env.GITHUB_REPOSITORY;
 
   if ((!pullNumber || !repository) && process.env.GITHUB_EVENT_PATH) {
     const event = JSON.parse(

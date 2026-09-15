@@ -7,7 +7,7 @@ import { tmpdir } from "node:os";
 
 describe("configuration loading", () => {
   it("returns defaults when no config file exists", () => {
-    const dir = join(tmpdir(), `prnerd-config-${Date.now()}`);
+    const dir = join(tmpdir(), `pushfox-config-${Date.now()}`);
     mkdirSync(dir, { recursive: true });
     try {
       expect(findConfigPath(dir)).toBeNull();
@@ -21,10 +21,10 @@ describe("configuration loading", () => {
   });
 
   it("loads yaml config and applies overrides", () => {
-    const dir = join(tmpdir(), `prnerd-config-yaml-${Date.now()}`);
+    const dir = join(tmpdir(), `pushfox-config-yaml-${Date.now()}`);
     mkdirSync(dir, { recursive: true });
     writeFileSync(
-      join(dir, ".pr-reviewer.yml"),
+      join(dir, ".pushfox.yml"),
       [
         "provider: gemini",
         "model: gemini-2.5-flash",
