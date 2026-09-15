@@ -1,11 +1,11 @@
 provider: gemini
-model: gemini-3.6-flash
+model: gemini-2.0-flash
 fallback_models:
   - gemini-flash-latest
-  - gemini-2.0-flash
+  - gemini-3.6-flash
 
 review:
-  max_iterations: 8
+  max_iterations: 3
   severity_threshold: medium
 
 paths:
